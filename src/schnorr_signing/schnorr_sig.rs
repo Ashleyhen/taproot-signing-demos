@@ -31,7 +31,7 @@ impl KeySet {
         };
     }
 
-    pub fn schnorr_sig(&self, msg: Scalar) -> Vec<u8> {
+    pub fn schnorr_sig(&self, msg: &Scalar) -> Vec<u8> {
         let secp = self.secp.clone();
 
         let aux = Scalar::random();
@@ -59,6 +59,7 @@ impl KeySet {
         signature.extend_from_slice(&last_half);
         return signature;
     }
+
 
     pub fn verify(sig: &[u8], msg: &Vec<u8>, x_only: &XOnlyPublicKey) -> bool {
         let secp = Secp256k1::new();
@@ -105,6 +106,7 @@ impl KeySet {
         }
         return result;
     }
+    
 }
 
 fn model() {
@@ -142,17 +144,16 @@ fn model() {
     signature_2.extend_from_slice(&signer_b);
     println!("hex: {}", signature.to_hex());
     println!("hex: {}", signature_2.to_hex())
-    // signer_a
 }
 
 #[test]
 fn test_single_schnorr_sig() {
-    for i in 0..5 {
+    for _ in 0..5 {
         let secp = Secp256k1::new();
         let secret = Scalar::random();
         let key_set = KeySet::from_slice(&secp, &secret.to_be_bytes());
         let msg = Scalar::ONE;
-        let signature = key_set.schnorr_sig(msg);
+        let signature = key_set.schnorr_sig(&msg);
 
         let is_success = KeySet::verify(
             &signature,
