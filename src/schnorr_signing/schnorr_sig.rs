@@ -16,7 +16,7 @@ impl KeySet {
         return KeySet::from_slice(&secp, &data);
     }
 
-    pub fn from_slice(secp: &Secp256k1<All>, data: &[u8; 32]) -> Self {
+    pub fn from_slice(secp: &Secp256k1<All>, data: &[u8]) -> Self {
         let secret_key = SecretKey::from_slice(&data.to_vec()).unwrap();
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
         let sk = if public_key.x_only_public_key().1 == Parity::Odd {
@@ -153,11 +153,8 @@ fn test_single_schnorr_sig() {
         let msg = Scalar::ONE;
         let signature = key_set.schnorr_sig(&msg);
 
-        let is_success = KeySet::verify(
-            &signature,
-            &msg,
-            &key_set.public_key.x_only_public_key().0,
-        );
+        let is_success =
+            KeySet::verify(&signature, &msg, &key_set.public_key.x_only_public_key().0);
         assert!(is_success)
     }
 }

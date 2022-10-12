@@ -14,11 +14,7 @@ fn main() {
     let msg = Scalar::ONE;
     let signature = key_set.schnorr_sig(&msg);
 
-    KeySet::verify(
-        &signature,
-        &msg,
-        &key_set.public_key.x_only_public_key().0,
-    );
+    KeySet::verify(&signature, &msg, &key_set.public_key.x_only_public_key().0);
     model();
 }
 fn model() {
