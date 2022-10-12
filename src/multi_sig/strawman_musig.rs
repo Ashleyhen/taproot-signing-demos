@@ -22,47 +22,24 @@ use crate::schnorr_signing::schnorr_sig::KeySet;
 // 	return signature
 // }
 
-pub fn aggregate_sig_2(
+pub fn check_sig(
     secp: &Secp256k1<All>,
     msg: &Scalar,
-    aggregate_pub_k: &PublicKey,
-    alice_sig: &Vec<u8>,
-    bob_sig: &Vec<u8>,
+    p: &PublicKey,
+    r_pub: &PublicKey,
 ) -> Vec<u8> {
-    // random half ..32
 
-    let r_xonly = PublicKey::from_x_only_public_key(
-        XOnlyPublicKey::from_slice(&alice_sig[..32]).unwrap(),
-        Parity::Even,
-    )
-    .combine(&PublicKey::from_x_only_public_key(
-        XOnlyPublicKey::from_slice(&bob_sig[..32]).unwrap(),
-        Parity::Even,
-    ))
-    .unwrap()
-    .x_only_public_key()
-    .0;
-
+	let r_xonly =r_pub.x_only_public_key().0;
     let mut engine = sha256::HashEngine::default();
     engine.input(&r_xonly.serialize());
-    engine.input(&aggregate_pub_k.x_only_public_key().0.serialize());
+    engine.input(&p.x_only_public_key().0.serialize());
     engine.input(&msg.to_be_bytes());
     let h_p_scalar = Scalar::from_be_bytes(sha256::Hash::from_engine(engine).into_inner()).unwrap();
 
-    let challenge = aggregate_pub_k
+    let challenge = p
         .mul_tweak(&secp, &h_p_scalar)
         .unwrap()
-        .combine(
-            &XOnlyPublicKey::from_slice(&alice_sig[..32])
-                .unwrap()
-                .public_key(Parity::Even),
-        )
-        .unwrap()
-        .combine(
-            &XOnlyPublicKey::from_slice(&bob_sig[..32])
-                .unwrap()
-                .public_key(Parity::Even),
-        )
+        .combine(&r_pub)
         .unwrap();
     let mut signature = r_xonly.serialize().to_vec();
     signature.extend_from_slice(&challenge.x_only_public_key().0.serialize());
@@ -70,7 +47,7 @@ pub fn aggregate_sig_2(
     return signature;
 }
 
-pub fn combine_sig(secp: &Secp256k1<All>, alice_sig: &Vec<u8>, bob_sig: &Vec<u8>) -> Vec<u8> {
+pub fn aggregate_sign(secp: &Secp256k1<All>, alice_sig: &Vec<u8>, bob_sig: &Vec<u8>) -> Vec<u8> {
     let mut signature = XOnlyPublicKey::from_slice(&alice_sig[..32])
         .unwrap()
         .add_tweak(
@@ -88,6 +65,18 @@ pub fn combine_sig(secp: &Secp256k1<All>, alice_sig: &Vec<u8>, bob_sig: &Vec<u8>
         .unwrap();
     signature.extend_from_slice(&last_half.secret_bytes());
     return signature;
+}
+
+pub fn aggregate_aux(alice_sig:&Vec<u8>,bob_sig:&Vec<u8>)->PublicKey{
+return PublicKey::from_x_only_public_key(
+        XOnlyPublicKey::from_slice(&alice_sig[..32]).unwrap(),
+        Parity::Even,
+    )
+    .combine(&PublicKey::from_x_only_public_key(
+        XOnlyPublicKey::from_slice(&bob_sig[..32]).unwrap(),
+        Parity::Even,
+    ))
+    .unwrap();
 }
 
 #[test]
@@ -116,9 +105,6 @@ pub fn test() {
     .x_only_public_key()
     .0;
 
-    // let alice_sig=alice_pub_k.schnorr_sig_x_only(&msg,&a_z,&r, &aggregate_pub_k.x_only_public_key().0);
-    // let bob_sig=alice_pub_k.schnorr_sig_x_only(&msg,&a_z,&r, &aggregate_pub_k.x_only_public_key().0);
-
     let alice_sig = alice_pub_k.schnorr_sig_x_only(
         &msg,
         &aggregate_pub_k.x_only_public_key().0,
@@ -131,69 +117,33 @@ pub fn test() {
         &Scalar::from_be_bytes(b_z.secret_key.secret_bytes()).unwrap(),
         &z,
     );
-    // let bob_sig=alice_pub_k.schnorr_sig(&msg);
 
-    // let alice_partial_verification=KeySet::partial_verification(
-    // 	&alice_sig,
-    // 	&msg.to_be_bytes().to_vec(),
-    // 	&alice_pub_k.public_key.x_only_public_key().0,
-    // 	&aggregate_pub_k.x_only_public_key().0,
-    // 	&shared_random_k
-    // );
-    // assert!(alice_partial_verification);
+	let r_pub=aggregate_aux(&alice_sig, &bob_sig);
 
-    // let bob_partial_verification=KeySet::partial_verification(
-    // 	&bob_sig,
-    // 	&msg.to_be_bytes().to_vec(),
-    // 	&bob_pub_k.public_key.x_only_public_key().0,
-    // 	&aggregate_pub_k.x_only_public_key().0,
-    // 	&shared_random_k
-    // );
+	assert_eq!(z,r_pub.x_only_public_key().0);
 
-    // assert!(bob_partial_verification);
+    let sig = aggregate_sign(&secp, &alice_sig, &bob_sig);
 
-    let sig = combine_sig(&secp, &alice_sig, &bob_sig);
-    let sig_2 = aggregate_sig_2(
-        &secp,
+   let is_valid=KeySet::aggreate_verify(&secp, &msg, &aggregate_pub_k, &r_pub, sig); 
+   assert!(is_valid);
+	
+}
+impl KeySet {
+	pub fn aggreate_verify(secp:&Secp256k1<All>,msg:&Scalar, aggregate_pub_k:&PublicKey,r_pub: &PublicKey,sig:Vec<u8>)->bool{
+let check_sig = check_sig(
+        secp,
         &msg,
-        &aggregate_pub_k,
-        &alice_sig,
-        &bob_sig,
+        &aggregate_pub_k, 
+		&r_pub
     );
 
-    let check = XOnlyPublicKey::from_slice(&sig_2[32..]).unwrap();
+    let check = XOnlyPublicKey::from_slice(&check_sig[32..]).unwrap();
     let final_sig = PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&sig[32..]).unwrap())
         .x_only_public_key()
         .0;
 
-    assert_eq!(final_sig, check);
-    // let final_verification=KeySet::verify(&sig, &msg.to_be_bytes().to_vec(), &aggregate_pub_k.x_only_public_key().0);
-
-    // let final_verification=KeySet::partial_verification(
-    // 		&sig_2,
-    // 		&msg.to_be_bytes().to_vec(),
-    // 		&aggregate_pub_k.x_only_public_key().0,
-    // 		&aggregate_pub_k.x_only_public_key().0,
-    // 		&shared_random_k
-    // 	);
-
-    // dbg!(shared_random_k.to_hex());
-    // dbg!(sig.to_hex());
-    // dbg!(sig_2.to_hex());
-    // assert!(final_verification);
-
-    // let is_valid=KeySet::aggregate_verify(&alice_sig, &msg.to_be_bytes().to_vec(), &alice_pub_k.public_key.x_only_public_key().0,&aggregate_pub_k.x_only_public_key().0);
-
-    // let final_signature=aggregate_sig_2(&secp,&alice_sig,&alice_sig);
-
-    // let final_sig=aggregate_sig(&secp,&msg,&aggregate_pub_k,&alice_sig,&alice_sig);
-
-    // let is_valid_2=KeySet::verify(&final_sig, &msg.to_be_bytes().to_vec(), &aggregate_pub_k.x_only_public_key().0);
-    // dbg!(final_sig.to_hex());
-
-    // let is_valid=KeySet::verify(&final_signature, &msg.to_be_bytes().to_vec(), &aggregate_pub_k.x_only_public_key().0);
-}
-impl KeySet {
+		return check.eq(&final_sig);
+	}
     pub fn schnorr_sig_x_only(
         &self,
         msg: &Scalar,
@@ -232,8 +182,7 @@ impl KeySet {
             .add_tweak(&z)
             .unwrap()
             .secret_bytes();
-        // dbg!(PublicKey::from_secret_key(&secp, &self.secret_key.mul_tweak(&h_p_scalar).unwrap()).x_only_public_key().0);
-        // dbg!(r.serialize().to_hex());
+
         let mut signature = random_keyset
             .public_key
             .x_only_public_key()
