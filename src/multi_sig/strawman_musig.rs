@@ -34,16 +34,21 @@ pub fn aggregate_sig_2(secp:&Secp256k1<All>,msg:&Scalar,aggregate_pub_k:&PublicK
 
 	let alice_scalar=SecretKey::from_slice(alice_sig[..32].try_into().unwrap()).unwrap();
 	let bob_scalar=Scalar::from_be_bytes(bob_sig[..32].try_into().unwrap()).unwrap();
-	
+	dbg!(bob_sig[..32].to_hex());
+	dbg!(alice_sig[..32].to_hex());
 	let last_half=
 	aggregate_pub_k
 	.mul_tweak(&secp,&h_p_scalar).unwrap()
 	.add_exp_tweak(&secp,&Scalar::from_be_bytes(alice_scalar.add_tweak(&bob_scalar).unwrap().secret_bytes()).unwrap()).unwrap();
 
-let alice_challenge=PublicKey::from_secret_key(secp,&SecretKey::from_slice(&h_p_scalar.to_be_bytes()).unwrap()).x_only_public_key().0;
-let bob_challenge=PublicKey::from_secret_key(secp,&SecretKey::from_slice(&h_p_scalar.to_be_bytes()).unwrap()).x_only_public_key().0;
+let alice_challenge=alice_pub.public_key(Parity::Even).mul_tweak(&secp,  &h_p_scalar).unwrap()
+		.combine(&XOnlyPublicKey::from_slice(&alice_sig[..32]).unwrap().public_key(Parity::Even)).unwrap();
+
+let bob_challenge=bob_pub.public_key(Parity::Even).mul_tweak(&secp,  &h_p_scalar).unwrap()
+		.combine(&XOnlyPublicKey::from_slice(&bob_sig[..32]).unwrap().public_key(Parity::Even)).unwrap();
+
 	let mut signature =r_xonly.serialize().to_vec();
-	signature.extend_from_slice(&alice_challenge.public_key(Parity::Even).combine(&bob_challenge.public_key(Parity::Even)).unwrap().x_only_public_key().0.serialize());
+	signature.extend_from_slice(&alice_challenge.combine(&bob_challenge).unwrap().x_only_public_key().0.serialize());
 
 	return signature;
 }
@@ -156,18 +161,14 @@ impl KeySet{
 			let h_p_scalar =
 				Scalar::from_be_bytes(sha256::Hash::from_engine(engine).into_inner()).unwrap();
 			// x*H(R|P|m)+r=s
-			dbg!(h_p_scalar.to_be_bytes().to_vec().to_hex());
-			let temp=SecretKey::from_slice(&h_p_scalar.to_be_bytes()).unwrap();
-			
-
-			let r_scalar = Scalar::from_be_bytes(random_keyset.secret_key.secret_bytes()).unwrap();
-
-
+;
+			let temp=self.secret_key.mul_tweak(&h_p_scalar).unwrap().add_tweak(z).unwrap();
+			dbg!(random_keyset.public_key.x_only_public_key().0.serialize().to_hex());
 			let last_half = self
 				.secret_key
 				.mul_tweak(&h_p_scalar)
 				.unwrap()
-				.add_tweak(&r_scalar)
+				.add_tweak(&z)
 				.unwrap()
 				.secret_bytes();
 				// dbg!(PublicKey::from_secret_key(&secp, &self.secret_key.mul_tweak(&h_p_scalar).unwrap()).x_only_public_key().0);
