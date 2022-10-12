@@ -16,7 +16,7 @@ fn main() {
 
     KeySet::verify(
         &signature,
-        &msg.to_be_bytes().to_vec(),
+        &msg,
         &key_set.public_key.x_only_public_key().0,
     );
     model();

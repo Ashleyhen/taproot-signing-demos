@@ -60,7 +60,7 @@ impl KeySet {
         return signature;
     }
 
-    pub fn verify(sig: &[u8], msg: &Vec<u8>, x_only: &XOnlyPublicKey) -> bool {
+    pub fn verify(sig: &[u8], msg: &Scalar, x_only: &XOnlyPublicKey) -> bool {
         let secp = Secp256k1::new();
 
         let pk_r: [u8; 32] = sig[..32].try_into().unwrap();
@@ -69,7 +69,7 @@ impl KeySet {
         let mut engine = sha256::HashEngine::default();
         engine.input(&pk_r);
         engine.input(&x_only.serialize());
-        engine.input(&msg);
+        engine.input(&msg.to_be_bytes());
 
         let h_p_scalar =
             Scalar::from_be_bytes(sha256::Hash::from_engine(engine).into_inner()).unwrap();
@@ -155,7 +155,7 @@ fn test_single_schnorr_sig() {
 
         let is_success = KeySet::verify(
             &signature,
-            &msg.to_be_bytes().to_vec(),
+            &msg,
             &key_set.public_key.x_only_public_key().0,
         );
         assert!(is_success)

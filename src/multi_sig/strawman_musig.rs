@@ -22,14 +22,8 @@ use crate::schnorr_signing::schnorr_sig::KeySet;
 // 	return signature
 // }
 
-pub fn check_sig(
-    secp: &Secp256k1<All>,
-    msg: &Scalar,
-    p: &PublicKey,
-    r_pub: &PublicKey,
-) -> Vec<u8> {
-
-	let r_xonly =r_pub.x_only_public_key().0;
+pub fn check_sig(secp: &Secp256k1<All>, msg: &Scalar, p: &PublicKey, r_pub: &PublicKey) -> Vec<u8> {
+    let r_xonly = r_pub.x_only_public_key().0;
     let mut engine = sha256::HashEngine::default();
     engine.input(&r_xonly.serialize());
     engine.input(&p.x_only_public_key().0.serialize());
@@ -49,13 +43,10 @@ pub fn check_sig(
 
 pub fn aggregate_sign(secp: &Secp256k1<All>, alice_sig: &Vec<u8>, bob_sig: &Vec<u8>) -> Vec<u8> {
     let mut signature = XOnlyPublicKey::from_slice(&alice_sig[..32])
-        .unwrap()
-        .add_tweak(
-            &secp,
-            &Scalar::from_be_bytes(bob_sig[..32].try_into().unwrap()).unwrap(),
-        )
-        .unwrap()
-        .0
+        .unwrap().public_key(Parity::Even)
+		.combine(&XOnlyPublicKey::from_slice(&bob_sig[..32]).unwrap().public_key(Parity::Even)).unwrap()
+		.x_only_public_key()
+		.0
         .serialize()
         .to_vec();
 
@@ -67,8 +58,8 @@ pub fn aggregate_sign(secp: &Secp256k1<All>, alice_sig: &Vec<u8>, bob_sig: &Vec<
     return signature;
 }
 
-pub fn aggregate_aux(alice_sig:&Vec<u8>,bob_sig:&Vec<u8>)->PublicKey{
-return PublicKey::from_x_only_public_key(
+pub fn aggregate_aux(alice_sig: &Vec<u8>, bob_sig: &Vec<u8>) -> PublicKey {
+    return PublicKey::from_x_only_public_key(
         XOnlyPublicKey::from_slice(&alice_sig[..32]).unwrap(),
         Parity::Even,
     )
@@ -86,9 +77,19 @@ pub fn test() {
     let alice_pub_k = KeySet::new(&secp);
     let bob_pub_k = KeySet::new(&secp);
 
-
-    let aggregate_pub_k = alice_pub_k.public_key.x_only_public_key().0.public_key(Parity::Even)
-.combine( &bob_pub_k.public_key.x_only_public_key().0.public_key(Parity::Even)).unwrap();
+    let aggregate_pub_k = alice_pub_k
+        .public_key
+        .x_only_public_key()
+        .0
+        .public_key(Parity::Even)
+        .combine(
+            &bob_pub_k
+                .public_key
+                .x_only_public_key()
+                .0
+                .public_key(Parity::Even),
+        )
+        .unwrap();
     // assert_eq!(aggregate_pub_k,bob_pub_k.public_key.combine(&alice_pub_k.public_key).unwrap());
     let a_z = KeySet::new(&secp);
     let b_z = KeySet::new(&secp);
@@ -118,32 +119,46 @@ pub fn test() {
         &z,
     );
 
-	let r_pub=aggregate_aux(&alice_sig, &bob_sig);
+    let r_pub = aggregate_aux(&alice_sig, &bob_sig);
 
-	assert_eq!(z,r_pub.x_only_public_key().0);
+    assert_eq!(z, r_pub.x_only_public_key().0);
 
     let sig = aggregate_sign(&secp, &alice_sig, &bob_sig);
 
-   let is_valid=KeySet::aggreate_verify(&secp, &msg, &aggregate_pub_k, &r_pub, sig); 
-   assert!(is_valid);
-	
+    let is_valid = KeySet::aggreate_verify(&secp, &msg, &aggregate_pub_k, &r_pub, &sig);
+	let test=KeySet::verify(&sig, &msg, &aggregate_pub_k.x_only_public_key().0);
+
+	dbg!(sig[..32].to_hex());
+	dbg!(r_pub.x_only_public_key().0.serialize().to_hex());
+
+    assert!(test);
+    assert!(is_valid);
 }
+
 impl KeySet {
-	pub fn aggreate_verify(secp:&Secp256k1<All>,msg:&Scalar, aggregate_pub_k:&PublicKey,r_pub: &PublicKey,sig:Vec<u8>)->bool{
-let check_sig = check_sig(
-        secp,
-        &msg,
-        &aggregate_pub_k, 
-		&r_pub
-    );
+    pub fn aggreate_verify(
+        secp: &Secp256k1<All>,
+        msg: &Scalar,
+        aggregate_pub_k: &PublicKey,
+        r_pub: &PublicKey,
+        sig: &Vec<u8>,
+    ) -> bool {
+        let check_sig = check_sig(secp, &msg, &aggregate_pub_k, &r_pub);
 
-    let check = XOnlyPublicKey::from_slice(&check_sig[32..]).unwrap();
-    let final_sig = PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&sig[32..]).unwrap())
-        .x_only_public_key()
-        .0;
+        let last_half_check = XOnlyPublicKey::from_slice(&check_sig[32..]).unwrap();
+        let last_half_sig =
+            PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&sig[32..]).unwrap())
+                .x_only_public_key()
+                .0;
 
-		return check.eq(&final_sig);
-	}
+		let mut final_signature=sig[..32].to_vec();
+		final_signature.extend_from_slice(&last_half_sig.serialize());
+
+		let mut check_signature=sig[..32].to_vec();
+		check_signature.extend_from_slice(&last_half_check.serialize());
+
+        return final_signature.eq(&check_signature);
+    }
     pub fn schnorr_sig_x_only(
         &self,
         msg: &Scalar,
@@ -163,25 +178,12 @@ let check_sig = check_sig(
         let h_p_scalar =
             Scalar::from_be_bytes(sha256::Hash::from_engine(engine).into_inner()).unwrap();
         // x*H(R|P|m)+r=s
-        let temp = self
+        let last_half = self
             .secret_key
             .mul_tweak(&h_p_scalar)
             .unwrap()
             .add_tweak(z)
             .unwrap();
-        dbg!(random_keyset
-            .public_key
-            .x_only_public_key()
-            .0
-            .serialize()
-            .to_hex());
-        let last_half = self
-            .secret_key
-            .mul_tweak(&h_p_scalar)
-            .unwrap()
-            .add_tweak(&z)
-            .unwrap()
-            .secret_bytes();
 
         let mut signature = random_keyset
             .public_key
@@ -189,7 +191,7 @@ let check_sig = check_sig(
             .0
             .serialize()
             .to_vec();
-        signature.extend_from_slice(&temp.secret_bytes());
+        signature.extend_from_slice(&last_half.secret_bytes());
         return signature;
     }
 
