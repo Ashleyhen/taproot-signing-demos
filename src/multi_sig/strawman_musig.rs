@@ -47,8 +47,9 @@ let alice_challenge=alice_pub.public_key(Parity::Even).mul_tweak(&secp,  &h_p_sc
 let bob_challenge=bob_pub.public_key(Parity::Even).mul_tweak(&secp,  &h_p_scalar).unwrap()
 		.combine(&XOnlyPublicKey::from_slice(&bob_sig[..32]).unwrap().public_key(Parity::Even)).unwrap();
 
+let challenge=alice_challenge.combine(&bob_challenge).unwrap().x_only_public_key().0.serialize();
 	let mut signature =r_xonly.serialize().to_vec();
-	signature.extend_from_slice(&alice_challenge.combine(&bob_challenge).unwrap().x_only_public_key().0.serialize());
+	signature.extend_from_slice(&challenge);
 
 	return signature;
 }
