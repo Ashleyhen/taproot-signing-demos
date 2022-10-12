@@ -19,7 +19,7 @@ use crate::schnorr_signing::schnorr_sig::KeySet;
 // 	return signature
 // }
 
-pub fn aggregate_sig_2(secp:&Secp256k1<All>,msg:&Scalar,aggregate_pub_k:&PublicKey,alice_sig:&Vec<u8>, bob_sig:&Vec<u8>)->Vec<u8>{
+pub fn aggregate_sig_2(secp:&Secp256k1<All>,msg:&Scalar,aggregate_pub_k:&PublicKey,alice_pub:&XOnlyPublicKey,bob_pub:&XOnlyPublicKey,alice_sig:&Vec<u8>, bob_sig:&Vec<u8>)->Vec<u8>{
 	
 	// random half ..32
 
@@ -40,15 +40,10 @@ pub fn aggregate_sig_2(secp:&Secp256k1<All>,msg:&Scalar,aggregate_pub_k:&PublicK
 	.mul_tweak(&secp,&h_p_scalar).unwrap()
 	.add_exp_tweak(&secp,&Scalar::from_be_bytes(alice_scalar.add_tweak(&bob_scalar).unwrap().secret_bytes()).unwrap()).unwrap();
 
-	// let bob_signature=bob_pub_k.mul_tweak(&secp,&h_p_scalar).unwrap().add_exp_tweak(&secp,&bob_scalar).unwrap();
-
-	// sig half
-
-	// let last_half=alice_signature.combine(&bob_signature).unwrap().x_only_public_key().0;
-;
+let alice_challenge=PublicKey::from_secret_key(secp,&SecretKey::from_slice(&h_p_scalar.to_be_bytes()).unwrap()).x_only_public_key().0;
+let bob_challenge=PublicKey::from_secret_key(secp,&SecretKey::from_slice(&h_p_scalar.to_be_bytes()).unwrap()).x_only_public_key().0;
 	let mut signature =r_xonly.serialize().to_vec();
-	signature.extend_from_slice(&PublicKey::from_secret_key(secp,&SecretKey::from_slice(&h_p_scalar.to_be_bytes()).unwrap()).x_only_public_key().0
-	.add_tweak(&secp,&h_p_scalar).unwrap().0.serialize());
+	signature.extend_from_slice(&alice_challenge.public_key(Parity::Even).combine(&bob_challenge.public_key(Parity::Even)).unwrap().x_only_public_key().0.serialize());
 
 	return signature;
 }
@@ -109,7 +104,7 @@ pub fn test(){
 	
 	
 	let sig=combine_sig(&secp,&alice_sig,&bob_sig);
-	let sig_2=aggregate_sig_2(&secp,&msg,&aggregate_pub_k,&alice_sig,&bob_sig);
+	let sig_2=aggregate_sig_2(&secp,&msg,&aggregate_pub_k,&alice_pub_k.public_key.x_only_public_key().0,&bob_pub_k.public_key.x_only_public_key().0,&alice_sig,&bob_sig);
 
 	let check=XOnlyPublicKey::from_slice(&sig_2[32..]).unwrap();
 	let final_sig=PublicKey::from_secret_key(&secp, &SecretKey::from_slice(&sig[32..]).unwrap()).x_only_public_key().0;
