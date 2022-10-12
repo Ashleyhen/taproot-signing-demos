@@ -157,7 +157,7 @@ impl KeySet {
             .public_key(parity);
 			
 
-        let check_sig = check_sig(secp, &msg, &aggregate_pub_k, &r_pub_check);
+        let check_sig = check_sig(secp, &msg, &aggregate_pub_k, &r_pub);
 
         let last_half_check = XOnlyPublicKey::from_slice(&check_sig[32..])
             .unwrap()
@@ -176,7 +176,7 @@ impl KeySet {
         dbg!(last_half_check.x_only_public_key().1);
         dbg!(last_half_sig.x_only_public_key().1);
 
-		assert_eq!(r_pub.clone().x_only_public_key().1,r_pub_check.clone().x_only_public_key().1);
+		// assert_eq!(r_pub.clone().x_only_public_key().1,r_pub_check.clone().x_only_public_key().1);
 		
         return final_signature.eq(&check_signature);
     }
