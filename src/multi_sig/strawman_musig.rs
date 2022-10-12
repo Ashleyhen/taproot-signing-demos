@@ -26,8 +26,6 @@ pub fn aggregate_sig_2(
     secp: &Secp256k1<All>,
     msg: &Scalar,
     aggregate_pub_k: &PublicKey,
-    alice_pub: &XOnlyPublicKey,
-    bob_pub: &XOnlyPublicKey,
     alice_sig: &Vec<u8>,
     bob_sig: &Vec<u8>,
 ) -> Vec<u8> {
@@ -51,10 +49,7 @@ pub fn aggregate_sig_2(
     engine.input(&msg.to_be_bytes());
     let h_p_scalar = Scalar::from_be_bytes(sha256::Hash::from_engine(engine).into_inner()).unwrap();
 
-    let challenge = alice_pub
-        .public_key(Parity::Even)
-        .combine(&bob_pub.public_key(Parity::Even))
-        .unwrap()
+    let challenge = aggregate_pub_k
         .mul_tweak(&secp, &h_p_scalar)
         .unwrap()
         .combine(
@@ -102,10 +97,9 @@ pub fn test() {
     let alice_pub_k = KeySet::new(&secp);
     let bob_pub_k = KeySet::new(&secp);
 
-    let aggregate_pub_k = alice_pub_k
-        .public_key
-        .combine(&bob_pub_k.public_key)
-        .unwrap();
+
+    let aggregate_pub_k = alice_pub_k.public_key.x_only_public_key().0.public_key(Parity::Even)
+.combine( &bob_pub_k.public_key.x_only_public_key().0.public_key(Parity::Even)).unwrap();
     // assert_eq!(aggregate_pub_k,bob_pub_k.public_key.combine(&alice_pub_k.public_key).unwrap());
     let a_z = KeySet::new(&secp);
     let b_z = KeySet::new(&secp);
@@ -163,8 +157,6 @@ pub fn test() {
         &secp,
         &msg,
         &aggregate_pub_k,
-        &alice_pub_k.public_key.x_only_public_key().0,
-        &bob_pub_k.public_key.x_only_public_key().0,
         &alice_sig,
         &bob_sig,
     );
