@@ -60,7 +60,6 @@ impl KeySet {
         return signature;
     }
 
-
     pub fn verify(sig: &[u8], msg: &Vec<u8>, x_only: &XOnlyPublicKey) -> bool {
         let secp = Secp256k1::new();
 
@@ -106,7 +105,6 @@ impl KeySet {
         }
         return result;
     }
-    
 }
 
 fn model() {
