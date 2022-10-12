@@ -19,16 +19,21 @@ impl KeySet {
     pub fn from_slice(secp: &Secp256k1<All>, data: &[u8]) -> Self {
         let secret_key = SecretKey::from_slice(&data.to_vec()).unwrap();
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
-        let sk = if public_key.x_only_public_key().1 == Parity::Odd {
-            secret_key.negate()
-        } else {
-            secret_key
-        };
-        return KeySet {
+         if public_key.x_only_public_key().1 == Parity::Odd {
+            return KeySet {
             secp: secp.clone(),
-            secret_key: sk,
+            secret_key: secret_key.negate() ,
+            public_key: public_key.negate(&secp),
+        };
+
+        } else {
+            return KeySet {
+            secp: secp.clone(),
+            secret_key:secret_key,
             public_key: public_key,
         };
+        };
+        ;
     }
 
     pub fn schnorr_sig(&self, msg: &Scalar) -> Vec<u8> {

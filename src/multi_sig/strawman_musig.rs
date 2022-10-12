@@ -85,15 +85,9 @@ pub fn test() {
 
     let aggregate_pub_k = alice_pub_k
         .public_key
-        .x_only_public_key()
-        .0
-        .public_key(Parity::Even)
         .combine(
             &bob_pub_k
                 .public_key
-                .x_only_public_key()
-                .0
-                .public_key(Parity::Even),
         )
         .unwrap();
     // assert_eq!(aggregate_pub_k,bob_pub_k.public_key.combine(&alice_pub_k.public_key).unwrap());
