@@ -121,12 +121,12 @@ impl KeySet {
     }
 
     pub fn get_even_secret(secp: &Secp256k1<All>, public_k: &PublicKey) -> KeySet {
-        let b_z = KeySet::new(&secp);
+        let keys = KeySet::new(&secp);
 
         let shared_secret = public_k
             .add_exp_tweak(
                 &secp,
-                &Scalar::from_be_bytes(b_z.secret_key.secret_bytes()).unwrap(),
+                &Scalar::from_be_bytes(keys.secret_key.secret_bytes()).unwrap(),
             )
             .unwrap();
 
@@ -134,7 +134,7 @@ impl KeySet {
             return KeySet::get_even_secret(&secp, public_k);
         }
 
-        return b_z;
+        return keys;
     }
 
     pub fn aggregate_sign(
@@ -160,30 +160,8 @@ impl KeySet {
             .unwrap()
             .add_tweak(&Scalar::from_be_bytes(bob_sig[32..].try_into().unwrap()).unwrap())
             .unwrap();
-        signature.extend_from_slice(
-            &KeySet::from_slice(&secp, &last_half.secret_bytes())
-                .secret_key
-                .secret_bytes(),
-        );
+            
+        signature.extend_from_slice( &last_half.secret_bytes() );
         return signature;
-    }
-}
-
-#[test]
-fn test_single_schnorr_sig() {
-    for i in 0..5 {
-        let secp = Secp256k1::new();
-        let secret = Scalar::random();
-        let key_set = KeySet::from_slice(&secp, &secret.to_be_bytes());
-        let msg = Scalar::ONE;
-        let signature = key_set.schnorr_sig(msg);
-
-        let is_success = KeySet::verify(
-            &secp,
-            &signature,
-            &msg,
-            &key_set.public_key.x_only_public_key().0,
-        );
-        assert!(is_success)
     }
 }

@@ -1,6 +1,6 @@
+mod adaptor;
 mod multi_sig;
 mod schnorr_signing;
-
 use bitcoin::{
     secp256k1::{All, Parity, PublicKey, Scalar, Secp256k1, SecretKey},
     XOnlyPublicKey,
@@ -26,24 +26,24 @@ fn main() {
 
     let b_z = KeySet::get_even_secret(&secp, &a_z.public_key);
 
-    let z = a_z
+    let r = a_z
         .public_key
         .combine(&b_z.public_key)
         .unwrap()
         .x_only_public_key()
         .0;
 
-    let alice_sig = alices_keys.schnorr_sig_x_only(
+    let alice_sig = alices_keys.partial_sig(
         &msg,
         &aggregate_x_only,
         &Scalar::from_be_bytes(a_z.secret_key.secret_bytes()).unwrap(),
-        &z,
+        &r,
     );
-    let bob_sig = bobs_keys.schnorr_sig_x_only(
+    let bob_sig = bobs_keys.partial_sig(
         &msg,
         &aggregate_x_only,
         &Scalar::from_be_bytes(b_z.secret_key.secret_bytes()).unwrap(),
-        &z,
+        &r,
     );
     let sig = KeySet::aggregate_sign(&secp, &alice_sig, &bob_sig);
 
