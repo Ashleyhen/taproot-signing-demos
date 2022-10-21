@@ -79,29 +79,41 @@ pub fn test_musig() {
     );
 
     assert!(is_bob_valid);
+
     assert!(is_alice_valid);
 
 	let alice_sig=a_z.keyset_as_aux_for_sig(alice_pre_sign[32..].try_into().unwrap());
 
-    let alice_bob_sign = KeySet::aggregate_sign(&secp, &alice_sig, &bob_pre_sign);
+    let aggregate_sig = KeySet::aggregate_sign(&secp, &alice_sig, &bob_pre_sign);
 
-    let bobs_musig = alice_k.extract_sig_without_t(&t.secret_key, &alice_bob_sign);
+    let alice_sig = alice_k.extract_sig_without_t(&t.secret_key, &aggregate_sig);
 
-	let alice_bob_sign_valid=KeySet::verify(&secp,&bobs_musig, &msg, &aggregate_x_only);
+    // alice takes her coins
+    let can_alice_take_her_k=KeySet::verify(&secp,&alice_sig, &msg, &aggregate_x_only);
 
-	assert!(alice_bob_sign_valid);
+	assert!(can_alice_take_her_k);
 
-    let complete = KeySet::reveal_tweak( &alice_bob_sign,&bobs_musig,);
+    let complete = KeySet::reveal_tweak( &aggregate_sig,&alice_sig,);
 
     assert_eq!(complete.display_secret(), t.secret_key.display_secret());
+
+    let bob_sig=&KeySet::compute_last_sig(&complete,&aggregate_sig);
+    
+    let can_bob_take_his_k=KeySet::verify(&secp,bob_sig, &msg, &aggregate_x_only);
+
+	assert!(can_bob_take_his_k);
+
 }
 
 impl KeySet {
+    fn compute_last_sig(complete:&SecretKey, bobs_musig:&Vec<u8>)->Vec<u8>{
+        let mut sig = bobs_musig[..32].to_vec(); 
+        sig.extend_from_slice(&complete.negate().add_tweak(&Scalar::from_be_bytes(bobs_musig[32..].try_into().unwrap()).unwrap()).unwrap().secret_bytes().to_vec());
+        return sig;
+    }
     fn extract_sig_without_t(&self, tweak: &SecretKey, signature: &Vec<u8>) -> Vec<u8> {
         let sig = Scalar::from_be_bytes(signature[32..].to_vec().try_into().unwrap()).unwrap();
         let last_part = tweak.negate().add_tweak(&sig).unwrap();
-        let pk =PublicKey::from_secret_key(&self.secp, &last_part);
-        dbg!(pk.x_only_public_key());
         let mut complete_sig = signature[..32].to_vec();
         complete_sig.extend_from_slice(&last_part.secret_bytes());
         return complete_sig;
