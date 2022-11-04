@@ -160,8 +160,8 @@ impl KeySet {
             .unwrap()
             .add_tweak(&Scalar::from_be_bytes(bob_sig[32..].try_into().unwrap()).unwrap())
             .unwrap();
-            
-        signature.extend_from_slice( &last_half.secret_bytes() );
+
+        signature.extend_from_slice(&last_half.secret_bytes());
         return signature;
     }
 }

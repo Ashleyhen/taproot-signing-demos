@@ -2,8 +2,10 @@ use bitcoin::secp256k1::{All, Scalar, Secp256k1};
 
 use crate::schnorr_signing::schnorr_sig::KeySet;
 
-pub mod strawman_musig;
+use self::musig2::{key_agg, aggregate_pub_k};
+
 pub mod musig2;
+pub mod strawman_musig;
 
 #[test]
 pub fn musig() {
@@ -75,3 +77,23 @@ pub fn musig() {
 
     assert!(is_valid);
 }
+
+pub fn musig2() {
+    let secp = Secp256k1::<All>::new();
+
+    let alice_k = KeySet::new(&secp);
+
+    let bob_k = KeySet::get_even_secret(&secp, &alice_k.public_key);
+
+    let alice_r = KeySet::new(&secp);
+
+    let bob_r = KeySet::get_even_secret(&secp, &alice_r.public_key);
+
+    let r =aggregate_pub_k(&vec![alice_k.public_key, bob_k.public_key]);
+
+    let x_tilde = key_agg(&vec![alice_k.public_key, bob_k.public_key]);
+
+    let m = Scalar::random();
+}
+
+
