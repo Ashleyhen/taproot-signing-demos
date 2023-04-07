@@ -3,7 +3,7 @@
 
 inputs:
 
-- c: tapbranch
+- c: tapbranch commitment
 - a: auxilary
 - s: secret
 
