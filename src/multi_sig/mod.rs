@@ -68,7 +68,7 @@ pub fn musig() {
 
     assert!(bob_paritial_verify);
 
-    let sig = KeySet::aggregate_sign(&secp, &alice_sig, &bob_sig);
+    let sig = KeySet::aggregate_sign(&alice_sig, &bob_sig);
 
     let is_valid = KeySet::verify(&secp, &sig, &msg, &aggregate_x_only);
 

@@ -137,11 +137,7 @@ impl KeySet {
         return keys;
     }
 
-    pub fn aggregate_sign(
-        secp: &Secp256k1<All>,
-        alice_sig: &Vec<u8>,
-        bob_sig: &Vec<u8>,
-    ) -> Vec<u8> {
+    pub fn aggregate_sign(alice_sig: &Vec<u8>, bob_sig: &Vec<u8>) -> Vec<u8> {
         let x_only = &XOnlyPublicKey::from_slice(&alice_sig[..32])
             .unwrap()
             .public_key(Parity::Even)
@@ -160,8 +156,8 @@ impl KeySet {
             .unwrap()
             .add_tweak(&Scalar::from_be_bytes(bob_sig[32..].try_into().unwrap()).unwrap())
             .unwrap();
-            
-        signature.extend_from_slice( &last_half.secret_bytes() );
+
+        signature.extend_from_slice(&last_half.secret_bytes());
         return signature;
     }
 }
