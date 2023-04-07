@@ -35,15 +35,13 @@ pub fn test_musig() {
         .x_only_public_key()
         .0;
 
-
     let secret_scalar_mapping = |secret_key: &SecretKey| {
         Scalar::from_be_bytes(secret_key.secret_bytes().try_into().unwrap()).unwrap()
     };
-	
-    let t =KeySet::get_even_secret(&secp, &a_z.public_key);
 
-	let tweak=secret_scalar_mapping(&t.secret_key);
+    let t = KeySet::get_even_secret(&secp, &a_z.public_key);
 
+    let tweak = secret_scalar_mapping(&t.secret_key);
 
     let alice_pre_sign = alice_k.partial_sig(
         &msg,
@@ -59,7 +57,7 @@ pub fn test_musig() {
         &r,
     );
 
-	let is_alice_valid = KeySet::partial_verification(
+    let is_alice_valid = KeySet::partial_verification(
         &secp,
         &alice_pre_sign,
         &msg,
@@ -67,7 +65,6 @@ pub fn test_musig() {
         &aggregate_x_only,
         &r,
     );
-
 
     let is_bob_valid = KeySet::partial_verification(
         &secp,
@@ -82,33 +79,39 @@ pub fn test_musig() {
 
     assert!(is_alice_valid);
 
-	let alice_sig=a_z.keyset_as_aux_for_sig(alice_pre_sign[32..].try_into().unwrap());
+    let alice_sig = a_z.keyset_as_aux_for_sig(alice_pre_sign[32..].try_into().unwrap());
 
-    let aggregate_sig = KeySet::aggregate_sign(&secp, &alice_sig, &bob_pre_sign);
+    let aggregate_sig = KeySet::aggregate_sign(&alice_sig, &bob_pre_sign);
 
     let alice_sig = alice_k.extract_sig_without_t(&t.secret_key, &aggregate_sig);
 
     // alice takes her coins
-    let can_alice_take_her_k=KeySet::verify(&secp,&alice_sig, &msg, &aggregate_x_only);
+    let can_alice_take_her_k = KeySet::verify(&secp, &alice_sig, &msg, &aggregate_x_only);
 
-	assert!(can_alice_take_her_k);
+    assert!(can_alice_take_her_k);
 
-    let complete = KeySet::reveal_tweak( &aggregate_sig,&alice_sig,);
+    let complete = KeySet::reveal_tweak(&aggregate_sig, &alice_sig);
 
     assert_eq!(complete.display_secret(), t.secret_key.display_secret());
 
-    let bob_sig=&KeySet::compute_last_sig(&complete,&aggregate_sig);
-    
-    let can_bob_take_his_k=KeySet::verify(&secp,bob_sig, &msg, &aggregate_x_only);
+    let bob_sig = &KeySet::compute_last_sig(&complete, &aggregate_sig);
 
-	assert!(can_bob_take_his_k);
+    let can_bob_take_his_k = KeySet::verify(&secp, bob_sig, &msg, &aggregate_x_only);
 
+    assert!(can_bob_take_his_k);
 }
 
 impl KeySet {
-    fn compute_last_sig(complete:&SecretKey, bobs_musig:&Vec<u8>)->Vec<u8>{
-        let mut sig = bobs_musig[..32].to_vec(); 
-        sig.extend_from_slice(&complete.negate().add_tweak(&Scalar::from_be_bytes(bobs_musig[32..].try_into().unwrap()).unwrap()).unwrap().secret_bytes().to_vec());
+    fn compute_last_sig(complete: &SecretKey, bobs_musig: &Vec<u8>) -> Vec<u8> {
+        let mut sig = bobs_musig[..32].to_vec();
+        sig.extend_from_slice(
+            &complete
+                .negate()
+                .add_tweak(&Scalar::from_be_bytes(bobs_musig[32..].try_into().unwrap()).unwrap())
+                .unwrap()
+                .secret_bytes()
+                .to_vec(),
+        );
         return sig;
     }
     fn extract_sig_without_t(&self, tweak: &SecretKey, signature: &Vec<u8>) -> Vec<u8> {
@@ -126,9 +129,13 @@ impl KeySet {
             .add_tweak(&Scalar::from_be_bytes(pre_sig[32..].to_vec().try_into().unwrap()).unwrap())
             .unwrap();
     }
-	fn keyset_as_aux_for_sig(&self, sig:[u8;32])->Vec<u8>{
-		let mut full_sig = PublicKey::from_secret_key(&self.secp, &self.secret_key).x_only_public_key().0.serialize().to_vec();
+    fn keyset_as_aux_for_sig(&self, sig: [u8; 32]) -> Vec<u8> {
+        let mut full_sig = PublicKey::from_secret_key(&self.secp, &self.secret_key)
+            .x_only_public_key()
+            .0
+            .serialize()
+            .to_vec();
         full_sig.extend_from_slice(&sig.to_vec());
         return full_sig;
-	}
+    }
 }

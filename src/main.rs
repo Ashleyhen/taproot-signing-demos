@@ -45,7 +45,7 @@ fn main() {
         &Scalar::from_be_bytes(b_z.secret_key.secret_bytes()).unwrap(),
         &r,
     );
-    let sig = KeySet::aggregate_sign(&secp, &alice_sig, &bob_sig);
+    let sig = KeySet::aggregate_sign(&alice_sig, &bob_sig);
 
     let is_valid = KeySet::verify(&secp, &sig, &msg, &aggregate_x_only);
 

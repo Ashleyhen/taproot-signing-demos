@@ -1,8 +1,10 @@
 use bitcoin::secp256k1::{Scalar, Secp256k1};
 
+
 use self::schnorr_sig::KeySet;
 
 pub mod schnorr_sig;
+pub mod tr_adaptor;
 
 #[test]
 fn test_single_schnorr_sig() {
@@ -19,6 +21,7 @@ fn test_single_schnorr_sig() {
             &msg,
             &key_set.public_key.x_only_public_key().0,
         );
+
         assert!(is_success)
     }
 }
