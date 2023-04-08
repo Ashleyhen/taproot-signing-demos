@@ -126,8 +126,6 @@ pub fn Verify(pk: &XOnlyPublicKey, m: &Vec<u8>, sig: &Vec<u8>) -> bool {
         .serialize();
 
     let their_sig = s.public_key(&secp()).serialize();
-    dbg!(our_sig.to_vec().to_hex());
-    dbg!(their_sig.to_vec().to_hex());
     return our_sig == their_sig;
 }
 
