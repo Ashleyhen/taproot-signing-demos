@@ -1,8 +1,8 @@
 use bitcoin::{
     schnorr::{TapTweak, TweakedKeyPair, TweakedPublicKey},
-    secp256k1::{schnorr::Signature, Message, Scalar, Secp256k1, SecretKey, All},
+    secp256k1::{schnorr::Signature, All, Message, Scalar, Secp256k1, SecretKey},
     util::taproot::TapTweakHash,
-    KeyPair, XOnlyPublicKey, SchnorrSig,
+    KeyPair, SchnorrSig, XOnlyPublicKey,
 };
 use bitcoin_hashes::{hex::ToHex, Hash, HashEngine};
 
@@ -80,12 +80,12 @@ pub fn tap_tweak(key_pair: &KeyPair, merkle_root: Option<Vec<u8>>) -> TweakedKey
     // q=p+H(P|c)
     let x_only = key_pair.x_only_public_key().0;
 
-    let mut args=vec![x_only.serialize().to_vec()];
+    let mut args = vec![x_only.serialize().to_vec()];
     if merkle_root.is_some() {
         args.push(merkle_root.unwrap().clone());
     }
 
-    let tap_tweak_hash = Scalar::from_be_bytes(tagged_hash("TapTweakHash",args )).unwrap();
+    let tap_tweak_hash = Scalar::from_be_bytes(tagged_hash("TapTweakHash", args)).unwrap();
 
     // tap_tweak_hash
     let secret_key = key_pair.secret_key();
@@ -178,15 +178,18 @@ pub fn sign(message: &Vec<u8>, key_pair: &KeyPair) -> SchnorrSig {
     our_signature.extend(our_sig.secret_bytes());
     our_signature.push(0x81 as u8);
 
-
     return SchnorrSig::from_slice(&our_signature[..]).unwrap();
 }
 #[test]
 pub fn test() {
     let x = SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap();
-    let commitment=Scalar::random().to_be_bytes().to_vec();
-    let d=tap_tweak(&x.keypair(&secp()), Some(commitment));
-    let message=Scalar::ONE.to_be_bytes().to_vec();
-    let schnorr_sig=sign(&message, &d.to_inner());
-    assert!(Verify(&d.to_inner().x_only_public_key().0, &message, &schnorr_sig.sig[..].to_vec()));
+    let commitment = Scalar::random().to_be_bytes().to_vec();
+    let d = tap_tweak(&x.keypair(&secp()), Some(commitment));
+    let message = Scalar::ONE.to_be_bytes().to_vec();
+    let schnorr_sig = sign(&message, &d.to_inner());
+    assert!(Verify(
+        &d.to_inner().x_only_public_key().0,
+        &message,
+        &schnorr_sig.sig[..].to_vec()
+    ));
 }

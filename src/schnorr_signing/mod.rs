@@ -1,10 +1,9 @@
 use bitcoin::secp256k1::{Scalar, Secp256k1};
 
-
 use self::schnorr_sig::KeySet;
 
 pub mod schnorr_sig;
-pub mod tr_adaptor;
+pub mod tr_shnorr;
 
 #[test]
 fn test_single_schnorr_sig() {
