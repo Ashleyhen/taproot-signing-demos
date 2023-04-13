@@ -187,9 +187,12 @@ pub fn test() {
     let d = tap_tweak(&x.keypair(&secp()), Some(commitment));
     let message = Scalar::ONE.to_be_bytes().to_vec();
     let schnorr_sig = sign(&message, &d.to_inner());
+
     assert!(Verify(
         &d.to_inner().x_only_public_key().0,
         &message,
         &schnorr_sig.sig[..].to_vec()
     ));
+
+    secp().verify_schnorr(&schnorr_sig.sig, &Message::from_slice(&message).unwrap(), &d.to_inner().x_only_public_key().0).unwrap();
 }
