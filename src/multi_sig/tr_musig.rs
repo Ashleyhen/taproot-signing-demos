@@ -357,24 +357,11 @@ pub fn test() {
     Checks::verify_with_challenge(&d[1].public_key(&secp()).x_only_public_key().0, &Scalar::from_be_bytes(e).unwrap(), &sig[1][..].to_vec());
 
 
-let final_sig=aggregate_sign(&sig);
+let final_sig=Signature::from_slice(&aggregate_sign(&sig)).unwrap();
 
-Verify(&shared_p.x_only_public_key().0, &message, &final_sig);
+// Verify(&shared_p.x_only_public_key().0, &message, &final_sig[..].to_vec());
+secp().verify_schnorr(&final_sig, &Message::from_slice(&message).unwrap(), &shared_p.x_only_public_key().0).unwrap();
 
-
-
-//   rand: &Vec<u8>,
-//     message: &Vec<u8>,
-//     tweaked_secret: &[u8; 32],
-//     sig: &Vec<u8>,
-    
-
-    // let shared_sig = aggregate_sign(&s);
-
-    // advanced_verification(&shared_p,  &shared_sig);
-
-    // let is_successful = Verify(&shared_p.x_only_public_key().0, &message.try_into().unwrap(), &shared_sig);
-    // println!("Is verifcation successful ?  {}", is_successful);
 }
 
 
