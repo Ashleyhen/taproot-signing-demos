@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use bitcoin::{
     psbt::serialize::Serialize,
     schnorr::{TapTweak, TweakedKeyPair, TweakedPublicKey},
@@ -286,18 +288,37 @@ pub fn calculate_signature(pk: &XOnlyPublicKey, challenge: &[u8; 32], aux: &Vec<
 #[test]
 pub fn test() {
     let x = [
-        SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap(),
-        SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap(),
+        // SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap(),
+        // SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap(),
+        SecretKey::from_str("222be28f38570a2c9b6efa7146cc589c9926eb66eb46b0b0bf9e6eb4606f1df7").unwrap(),
+        SecretKey::from_str("cc041d7f36f8a9b50c1bcd80f7ad3c87db4bf5091b5ff53f80aff5b7b6350411").unwrap(),
     ];
+    let message = Scalar::ONE.to_be_bytes().to_vec();
 
-    let commitment = [
-        &Scalar::random().to_be_bytes().to_vec(),
-        &Scalar::random().to_be_bytes().to_vec(),
+    let a = [
+
+        SecretKey::from_str("f21893568fc2b23247fdca12eb54c1c2c9d5a0c84c1ae5d739cb9a25301bfe4a").unwrap().secret_bytes().to_vec(),
+        SecretKey::from_str("bd7446a80ff0df66354d9f38d4ea96e41b506b66f37b389c6d870b7c3c72b3c7").unwrap().secret_bytes().to_vec(),
+        // Scalar::random().to_be_bytes().to_vec(),
+        // Scalar::random().to_be_bytes().to_vec(),
+        // &Scalar::random().to_be_bytes().to_vec(),
     ];
+    // let commitment = [
+    //     &Scalar::random().to_be_bytes().to_vec(),
+    //     &Scalar::random().to_be_bytes().to_vec(),
+    // ];
+
+
+ println!("private keys: \n {}\n {}\n private aux: \n {} \n {} ", 
+        x[0].secret_bytes().to_hex(),
+        x[1].secret_bytes().to_hex(),
+        a[0].to_hex(), 
+        a[1].to_hex()
+    );
 
     let _d = [
-        tap_tweak(&x[0].keypair(&secp()), Some(commitment[0].to_vec())),
-        tap_tweak(&x[1].keypair(&secp()), Some(commitment[1].to_vec())),
+        tap_tweak(&x[0].keypair(&secp()),None),
+        tap_tweak(&x[1].keypair(&secp()), None),
     ];
 
     let d = vec![
@@ -311,16 +332,11 @@ pub fn test() {
         .unwrap();
     // mock
 
-    let message = Scalar::ONE.to_be_bytes().to_vec();
 
-    let a = [
-        &Scalar::random().to_be_bytes().to_vec(),
-        &Scalar::random().to_be_bytes().to_vec(),
-    ];
 
     let t = vec![
-        xor_private_tweak_and_aux(&d[0].secret_bytes().to_vec(), a[0]),
-        xor_private_tweak_and_aux(&d[1].secret_bytes().to_vec(), a[1]),
+        xor_private_tweak_and_aux(&d[0].secret_bytes().to_vec(), &a[0]),
+        xor_private_tweak_and_aux(&d[1].secret_bytes().to_vec(), &a[1]),
     ];
 
     let r = [

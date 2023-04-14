@@ -1,12 +1,12 @@
 
 Successful
 private keys: 
- 30301dbeee7c841bc41edfcc7f368a37ca0c2f8e76b39a6aca46f8e93a6190f1 //Successful odd path
- b00bc06ce11ccf947a501417f421138e2b8f510eb2f8a7faf4467bf689001879 //Successful
+ 222be28f38570a2c9b6efa7146cc589c9926eb66eb46b0b0bf9e6eb4606f1df7 //Successful 
+ cc041d7f36f8a9b50c1bcd80f7ad3c87db4bf5091b5ff53f80aff5b7b6350411 //Successful
 
 private aux: 
- 110547b415bc0ffefd7c4e02bdf0e445eb3b4fc9c132a7b44b61818fad227045 //Successful
- cc9707a8d41e0574d99ff5931253e42ecb40482e1b3a6496a3e62f161b7567b1 //Successful
+ f21893568fc2b23247fdca12eb54c1c2c9d5a0c84c1ae5d739cb9a25301bfe4a //Successful
+ bd7446a80ff0df66354d9f38d4ea96e41b506b66f37b389c6d870b7c3c72b3c7 //Successful
  3afc1e857aee087e426d34ecb24dcdf48d3d5a904814db5d63f6e705c1a7554b //Fails
 
 
