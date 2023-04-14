@@ -91,8 +91,8 @@ pub fn tap_tweak(key_pair: &KeyPair, merkle_root: Option<Vec<u8>>) -> TweakedKey
     let tap_tweak_hash = Scalar::from_be_bytes(tagged_hash("TapTweakHash", args)).unwrap();
 
     // tap_tweak_hash
-    let secret_key = key_pair.secret_key();
-    let tweak_pair = secret_key
+    // let primary_secret = key_pair.secret_bytes();
+    let tweak_pair = key_pair.secret_key()
         .add_tweak(&tap_tweak_hash)
         .unwrap()
         .keypair(&secp())
@@ -196,10 +196,10 @@ pub fn partial_sig(
 }
 
 pub fn sign(message: &Vec<u8>, key_pair: &KeyPair,aux: &Vec<u8>) -> SchnorrSig {
-    let secret_key = even_secret(&key_pair.secret_key());
+    let primary_secret = even_secret(&key_pair.secret_key());
 
-    let x_only = secret_key.x_only_public_key(&secp()).0;
-    let d = secret_key.secret_bytes().to_vec();
+    let x_only = primary_secret.x_only_public_key(&secp()).0;
+    let d = primary_secret.secret_bytes().to_vec();
 
     let t = d
         .iter()
@@ -286,12 +286,12 @@ pub fn calculate_signature(pk: &XOnlyPublicKey, challenge: &[u8; 32], aux: &Vec<
         .serialize();
 }
 #[derive(Clone,Copy)]
-pub struct AuxSigner{
-    secret_key:SecretKey,
-    aux_secret:SecretKey,
+pub struct Signer{
+    primary_secret:SecretKey,
+    secondary_secret:SecretKey,
 }
    
-   pub fn get_even_aux(x:SecretKey,message:&Vec<u8>, a:SecretKey)->AuxSigner{
+   pub fn get_even_aux(x:SecretKey,message:&Vec<u8>, a:SecretKey)->Signer{
 
     let _d=tap_tweak(&x.keypair(&secp()),None);
     let d = even_secret(&SecretKey::from_slice(&_d.to_inner().secret_bytes()).unwrap());
@@ -301,33 +301,33 @@ pub struct AuxSigner{
     let r=SecretKey::from_slice(&calculate_nonce(&t, &d.public_key(&secp()).x_only_public_key().0, &message.to_vec())).unwrap();
 
     if r.x_only_public_key(&secp()).1.eq(&Parity::Even) {
-       return AuxSigner{
-        secret_key:a,
-        aux_secret:r,
+       return Signer{
+        primary_secret:a,
+        secondary_secret:r,
        } ;
     }
 
-    return AuxSigner{
-        secret_key:a,
-        aux_secret:r.negate(),
+    return Signer{
+        primary_secret:a,
+        secondary_secret:r.negate(),
     }
     
    
 
 
 }
-impl AuxSigner{
+impl Signer{
 
-    pub fn even_shared_secret(&self,their_pub_k:&PublicKey, message: &Vec<u8>)->AuxSigner{
+    pub fn even_shared_secret(&self,their_pub_k:&PublicKey, message: &Vec<u8>)->Signer{
 
-        let shared_pub_k=self.aux_secret.public_key(&secp()).combine(&their_pub_k).unwrap();
+        let shared_pub_k=self.secondary_secret.public_key(&secp()).combine(&their_pub_k).unwrap();
 
         if shared_pub_k.x_only_public_key().1.eq(&Parity::Even){
             return self.clone();
 
         }
 
-       let aux_signer=get_even_aux(self.secret_key,message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
+       let aux_signer=get_even_aux(self.primary_secret,message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
        return  aux_signer.even_shared_secret(their_pub_k, message); 
     }
 }
@@ -348,15 +348,15 @@ pub fn test() {
         user_one ,
 
         get_even_aux(x[1], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap())
-        .even_shared_secret(&user_one.aux_secret.public_key(&secp()), &message)
+        .even_shared_secret(&user_one.secondary_secret.public_key(&secp()), &message)
         ];
    
 
     println!("private keys: \n {}\n {}\n private aux: \n {} \n {}\n==================================== ", 
         x[0].secret_bytes().to_hex(),
         x[1].secret_bytes().to_hex(),
-        a[0].aux_secret.secret_bytes().to_hex(), 
-        a[1].aux_secret.secret_bytes().to_hex()
+        a[0].secondary_secret.secret_bytes().to_hex(), 
+        a[1].secondary_secret.secret_bytes().to_hex()
     );
 
     let d = [
@@ -371,13 +371,13 @@ pub fn test() {
 
 
     let r = [
-        a[0].aux_secret.secret_bytes(),
-        a[1].aux_secret.secret_bytes(),
+        a[0].secondary_secret.secret_bytes(),
+        a[1].secondary_secret.secret_bytes(),
     ];
 
     let aux = vec![
-        a[0].aux_secret.public_key(&secp()),
-        a[1].aux_secret.public_key(&secp()),
+        a[0].secondary_secret.public_key(&secp()),
+        a[1].secondary_secret.public_key(&secp()),
     ];
 
     let shared_aux = aux[0].combine(&aux[1]).unwrap();
