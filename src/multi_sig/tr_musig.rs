@@ -175,7 +175,8 @@ pub fn partial_sig(
     tweaked_secret: &[u8; 32],
 ) -> Signature {
     let aux=SecretKey::from_slice(&rand).unwrap();
-    dbg!(aux.public_key(&secp()).x_only_public_key());
+
+    dbg!(SecretKey::from_slice(&tweaked_secret.to_vec()).unwrap().public_key(&secp()).x_only_public_key());
 
      let our_sig=SecretKey::from_slice(&challenge)
         .unwrap()
@@ -381,7 +382,6 @@ pub fn test() {
 
     let shared_aux = aux[0].combine(&aux[1]).unwrap();
 
-    dbg!(shared_aux.x_only_public_key());
 
     let shared_p = d[0]
         .public_key(&secp())
@@ -389,6 +389,7 @@ pub fn test() {
         .unwrap();
 
 
+    dbg!(shared_p.x_only_public_key());
     let e =calculate_challenge(&shared_aux.x_only_public_key().0, &shared_p.x_only_public_key().0, &message);
 
     let sig = [
