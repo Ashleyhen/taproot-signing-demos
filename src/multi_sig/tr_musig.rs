@@ -291,10 +291,8 @@ pub struct Signer{
     secondary_secret:SecretKey,
 }
    
-   pub fn get_even_aux(x:SecretKey,message:&Vec<u8>, a:SecretKey)->Signer{
-
-    let _d=tap_tweak(&x.keypair(&secp()),None);
-    let d = even_secret(&SecretKey::from_slice(&_d.to_inner().secret_bytes()).unwrap());
+impl Signer{
+    pub fn get_even_aux(d:SecretKey,message:&Vec<u8>, a:SecretKey)->Signer{
 
     let t = xor_private_tweak_and_aux(&d.secret_bytes().to_vec(), &a.secret_bytes().to_vec());
 
@@ -312,12 +310,7 @@ pub struct Signer{
         secondary_secret:r.negate(),
     }
     
-   
-
-
 }
-impl Signer{
-
     pub fn even_shared_secret(&self,their_pub_k:&PublicKey, message: &Vec<u8>)->Signer{
 
         let shared_pub_k=self.secondary_secret.public_key(&secp()).combine(&their_pub_k).unwrap();
@@ -327,7 +320,7 @@ impl Signer{
 
         }
 
-       let aux_signer=get_even_aux(self.primary_secret,message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
+       let aux_signer=Self::get_even_aux(self.primary_secret,message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
        return  aux_signer.even_shared_secret(their_pub_k, message); 
     }
 }
@@ -340,14 +333,30 @@ pub fn test() {
         SecretKey::from_str("cc041d7f36f8a9b50c1bcd80f7ad3c87db4bf5091b5ff53f80aff5b7b6350411").unwrap(),
         // SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap(),
     ];
+    
+  let d = [
+        tap_tweak(&x[0].keypair(&secp()),None),
+        tap_tweak(&x[1].keypair(&secp()), None),
+    ];
 
+    let d = vec![
+        SecretKey::from_slice(&d[0].to_inner().secret_bytes()).unwrap(), //even_secret was here before
+        SecretKey::from_slice(&d[1].to_inner().secret_bytes()).unwrap(),
+    ];
+
+    let shared_p = d[0]
+        .public_key(&secp())
+        .combine(&d[1].public_key(&secp()))
+        .unwrap();
+
+
+    dbg!(shared_p.x_only_public_key());
     let message = Scalar::ONE.to_be_bytes().to_vec();
-    let user_one=get_even_aux(x[0], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
+    let user_one=Signer::get_even_aux(d[0], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
 
     let a=[
         user_one ,
-
-        get_even_aux(x[1], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap())
+        Signer::get_even_aux(d[1], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap())
         .even_shared_secret(&user_one.secondary_secret.public_key(&secp()), &message)
         ];
    
@@ -359,16 +368,7 @@ pub fn test() {
         a[1].secondary_secret.secret_bytes().to_hex()
     );
 
-    let d = [
-        tap_tweak(&x[0].keypair(&secp()),None),
-        tap_tweak(&x[1].keypair(&secp()), None),
-    ];
-
-    let d = vec![
-        SecretKey::from_slice(&d[0].to_inner().secret_bytes()).unwrap(), //even_secret was here before
-        SecretKey::from_slice(&d[1].to_inner().secret_bytes()).unwrap(),
-    ];
-
+  
 
     let r = [
         a[0].secondary_secret.secret_bytes(),
@@ -383,13 +383,7 @@ pub fn test() {
     let shared_aux = aux[0].combine(&aux[1]).unwrap();
 
 
-    let shared_p = d[0]
-        .public_key(&secp())
-        .combine(&d[1].public_key(&secp()))
-        .unwrap();
-
-
-    dbg!(shared_p.x_only_public_key());
+    
     let e =calculate_challenge(&shared_aux.x_only_public_key().0, &shared_p.x_only_public_key().0, &message);
 
     let sig = [
