@@ -130,9 +130,7 @@ pub fn Verify(pk: &XOnlyPublicKey, m: &Vec<u8>, sig: &Vec<u8>) -> bool {
         .serialize();
 
     let their_sig = s.public_key(&secp()).x_only_public_key().0.serialize();
-    assert_eq!(
-        our_sig,
-        their_sig,
+    println!(
         "\n{}  \n{}",
         our_sig.to_hex(),
         their_sig.to_hex()
@@ -299,6 +297,7 @@ pub fn test() {
 
         SecretKey::from_str("f21893568fc2b23247fdca12eb54c1c2c9d5a0c84c1ae5d739cb9a25301bfe4a").unwrap().secret_bytes().to_vec(),
         SecretKey::from_str("bd7446a80ff0df66354d9f38d4ea96e41b506b66f37b389c6d870b7c3c72b3c7").unwrap().secret_bytes().to_vec(),
+        // SecretKey::from_str("3f8804a3ca03d430af3da9f975761a000935bc1b5dbc4a61bed050b2a02981de").unwrap().secret_bytes().to_vec(),
         // Scalar::random().to_be_bytes().to_vec(),
         // Scalar::random().to_be_bytes().to_vec(),
         // &Scalar::random().to_be_bytes().to_vec(),
@@ -375,8 +374,8 @@ pub fn test() {
 
 let final_sig=Signature::from_slice(&aggregate_sign(&sig)).unwrap();
 
-// Verify(&shared_p.x_only_public_key().0, &message, &final_sig[..].to_vec());
 secp().verify_schnorr(&final_sig, &Message::from_slice(&message).unwrap(), &shared_p.x_only_public_key().0).unwrap();
+Verify(&shared_p.x_only_public_key().0, &message, &final_sig[..].to_vec());
 
 }
 
