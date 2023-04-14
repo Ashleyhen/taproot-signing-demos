@@ -174,7 +174,9 @@ pub fn partial_sig(
     challenge: &Vec<u8>,
     tweaked_secret: &[u8; 32],
 ) -> Signature {
-let aux=SecretKey::from_slice(&rand).unwrap();
+    let aux=SecretKey::from_slice(&rand).unwrap();
+    dbg!(aux.public_key(&secp()).x_only_public_key());
+
      let our_sig=SecretKey::from_slice(&challenge)
         .unwrap()
         .mul_tweak(&Scalar::from_be_bytes(tweaked_secret.clone()).unwrap())
@@ -283,6 +285,39 @@ pub fn calculate_signature(pk: &XOnlyPublicKey, challenge: &[u8; 32], aux: &Vec<
         .serialize();
 }
 
+pub struct AuxSigner{
+    aux_secret:SecretKey,
+    aux_secret_tweak:SecretKey,
+    aux_public_tweak:PublicKey,
+}
+   
+   pub fn get_even_aux(x:SecretKey,message:&Vec<u8>, a:SecretKey)->AuxSigner{
+
+    let _d=tap_tweak(&x.keypair(&secp()),None);
+    let d = even_secret(&SecretKey::from_slice(&_d.to_inner().secret_bytes()).unwrap());
+
+    let t = xor_private_tweak_and_aux(&d.secret_bytes().to_vec(), &a.secret_bytes().to_vec());
+
+    let r=SecretKey::from_slice(&calculate_nonce(&t, &d.public_key(&secp()).x_only_public_key().0, &message.to_vec())).unwrap();
+
+    if r.x_only_public_key(&secp()).1.eq(&Parity::Even) {
+       return AuxSigner{
+        aux_secret:a,
+        aux_secret_tweak:r,
+        aux_public_tweak:r.public_key(&secp())
+       } ;
+    }
+
+    return AuxSigner{
+        aux_secret:a,
+        aux_secret_tweak:r.negate(),
+        aux_public_tweak:r.public_key(&secp())
+    }
+
+
+
+}
+
 #[test]
 pub fn test() {
     let x = [
@@ -293,62 +328,65 @@ pub fn test() {
     ];
     let message = Scalar::ONE.to_be_bytes().to_vec();
 
-    let a = [
-
-        SecretKey::from_str("f21893568fc2b23247fdca12eb54c1c2c9d5a0c84c1ae5d739cb9a25301bfe4a").unwrap().secret_bytes().to_vec(),
-        SecretKey::from_str("bd7446a80ff0df66354d9f38d4ea96e41b506b66f37b389c6d870b7c3c72b3c7").unwrap().secret_bytes().to_vec(),
-        // SecretKey::from_str("3f8804a3ca03d430af3da9f975761a000935bc1b5dbc4a61bed050b2a02981de").unwrap().secret_bytes().to_vec(),
-        // Scalar::random().to_be_bytes().to_vec(),
-        // Scalar::random().to_be_bytes().to_vec(),
-        // &Scalar::random().to_be_bytes().to_vec(),
-    ];
-    // let commitment = [
-    //     &Scalar::random().to_be_bytes().to_vec(),
-    //     &Scalar::random().to_be_bytes().to_vec(),
+    let a=[
+        get_even_aux(x[0], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap()),
+        get_even_aux(x[1], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap())
+        ];
+    // let a = [
+    //     SecretKey::from_str("3f8804a3ca03d430af3da9f975761a000935bc1b5dbc4a61bed050b2a02981de").unwrap().secret_bytes().to_vec(),
+    //     // SecretKey::from_str("bd7446a80ff0df66354d9f38d4ea96e41b506b66f37b389c6d870b7c3c72b3c7").unwrap().secret_bytes().to_vec(),
+    //     // SecretKey::from_str("3f8804a3ca03d430af3da9f975761a000935bc1b5dbc4a61bed050b2a02981de").unwrap().secret_bytes().to_vec(),
+    //     aux_signer.aux_secret.secret_bytes().to_vec(),
+    //     // Scalar::random().to_be_bytes().to_vec(),
+    //     // Scalar::random().to_be_bytes().to_vec(),
+    //     // &Scalar::random().to_be_bytes().to_vec(),
     // ];
 
 
- println!("private keys: \n {}\n {}\n private aux: \n {} \n {} ", 
+
+dbg!( a[0].aux_public_tweak.x_only_public_key());  
+
+ println!("private keys: \n {}\n {}\n private aux: \n {} \n {}\n==================================== ", 
         x[0].secret_bytes().to_hex(),
         x[1].secret_bytes().to_hex(),
-        a[0].to_hex(), 
-        a[1].to_hex()
+        a[0].aux_secret.secret_bytes().to_hex(), 
+        a[1].aux_secret.secret_bytes().to_hex()
     );
 
-    let _d = [
+    let d = [
         tap_tweak(&x[0].keypair(&secp()),None),
         tap_tweak(&x[1].keypair(&secp()), None),
     ];
 
     let d = vec![
-        even_secret(&SecretKey::from_slice(&_d[0].to_inner().secret_bytes()).unwrap()),
-        even_secret(&SecretKey::from_slice(&_d[1].to_inner().secret_bytes()).unwrap()),
+        even_secret(&SecretKey::from_slice(&d[0].to_inner().secret_bytes()).unwrap()),
+        even_secret(&SecretKey::from_slice(&d[1].to_inner().secret_bytes()).unwrap()),
     ];
 
-    let shared_p = d[0]
-        .public_key(&secp())
-        .combine(&d[1].public_key(&secp()))
-        .unwrap();
-    // mock
-
-
-
-    let t = vec![
-        xor_private_tweak_and_aux(&d[0].secret_bytes().to_vec(), &a[0]),
-        xor_private_tweak_and_aux(&d[1].secret_bytes().to_vec(), &a[1]),
-    ];
+    // let t = vec![
+    //     xor_private_tweak_and_aux(&d[0].secret_bytes().to_vec(), &a[0]),
+    //     xor_private_tweak_and_aux(&d[1].secret_bytes().to_vec(), &a[1]),
+    // ];
 
     let r = [
-        calculate_nonce(&t[0], &d[0].public_key(&secp()).x_only_public_key().0, &message),
-        calculate_nonce(&t[1], &d[1].public_key(&secp()).x_only_public_key().0, &message),
+        a[0].aux_secret_tweak.secret_bytes(),
+        a[1].aux_secret_tweak.secret_bytes(),
     ];
 
-        let aux = vec![
+    let aux = vec![
         SecretKey::from_slice(&r[0]).unwrap().public_key(&secp()),
         SecretKey::from_slice(&r[1]).unwrap().public_key(&secp()),
     ];
 
     let shared_aux = aux[0].combine(&aux[1]).unwrap();
+
+    dbg!(shared_aux.x_only_public_key());
+
+    let shared_p = d[0]
+        .public_key(&secp())
+        .combine(&d[1].public_key(&secp()))
+        .unwrap();
+
 
     let e =calculate_challenge(&shared_aux.x_only_public_key().0, &shared_p.x_only_public_key().0, &message);
 
