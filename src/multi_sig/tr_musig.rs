@@ -311,7 +311,31 @@ impl Signer{
     }
     
 }
-    pub fn even_shared_secret(&self,their_pub_k:&PublicKey, message: &Vec<u8>)->Signer{
+
+
+    pub fn get_even_secret(x:SecretKey)->Signer{
+            let d= SecretKey::from_slice(&tap_tweak(&x.keypair(&secp()),None).to_inner().secret_bytes()).unwrap();
+            if d.x_only_public_key(&secp()).1.eq(&Parity::Even){
+                return Signer{
+                    primary_secret:x,secondary_secret:d
+                }
+            }
+            return Signer{
+                    primary_secret:x,secondary_secret:d.negate()
+                }
+    }
+
+    pub fn even_secret(&self, their_pub_k:&PublicKey)->Signer{
+        let pux_k=self.secondary_secret.public_key(&secp()).combine(&their_pub_k).unwrap();
+        if pux_k.x_only_public_key().1.eq(&Parity::Even) {
+            return self.clone();
+        }
+        let signer=Self::get_even_secret(SecretKey::from_slice(&Scalar::random().to_be_bytes().to_vec()).unwrap());
+        return signer.even_secret(their_pub_k);
+    }
+
+
+    pub fn even_shared_aux(&self,their_pub_k:&PublicKey, message: &Vec<u8>)->Signer{
 
         let shared_pub_k=self.secondary_secret.public_key(&secp()).combine(&their_pub_k).unwrap();
 
@@ -321,28 +345,34 @@ impl Signer{
         }
 
        let aux_signer=Self::get_even_aux(self.primary_secret,message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
-       return  aux_signer.even_shared_secret(their_pub_k, message); 
+       return  aux_signer.even_shared_aux(their_pub_k, message); 
     }
 }
 
 #[test]
 pub fn test() {
 
+    let init_scret = Signer::get_even_secret(SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
     let x = [
-        SecretKey::from_str("222be28f38570a2c9b6efa7146cc589c9926eb66eb46b0b0bf9e6eb4606f1df7").unwrap(),
-        SecretKey::from_str("cc041d7f36f8a9b50c1bcd80f7ad3c87db4bf5091b5ff53f80aff5b7b6350411").unwrap(),
-        // SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap(),
-    ];
-    
-  let d = [
-        tap_tweak(&x[0].keypair(&secp()),None),
-        tap_tweak(&x[1].keypair(&secp()), None),
+        init_scret,
+        init_scret.even_secret(&init_scret.secondary_secret.public_key(&secp())),
     ];
 
-    let d = vec![
-        SecretKey::from_slice(&d[0].to_inner().secret_bytes()).unwrap(), //even_secret was here before
-        SecretKey::from_slice(&d[1].to_inner().secret_bytes()).unwrap(),
+   let d = [
+        x[0].secondary_secret,
+        x[1].secondary_secret,
     ];
+
+   
+//   let d = [
+//         tap_tweak(&x[0].keypair(&secp()),None),
+//         tap_tweak(&x[1].keypair(&secp()), None),
+//     ];
+
+//     let d = vec![
+//         SecretKey::from_slice(&d[0].to_inner().secret_bytes()).unwrap(), //even_secret was here before
+//         SecretKey::from_slice(&d[1].to_inner().secret_bytes()).unwrap(),
+//     ];
 
     let shared_p = d[0]
         .public_key(&secp())
@@ -352,20 +382,20 @@ pub fn test() {
 
     dbg!(shared_p.x_only_public_key());
     let message = Scalar::ONE.to_be_bytes().to_vec();
-    let user_one=Signer::get_even_aux(d[0], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
+    let init_aux=Signer::get_even_aux(d[0], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
 
     let a=[
-        user_one ,
+        init_aux ,
         Signer::get_even_aux(d[1], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap())
-        .even_shared_secret(&user_one.secondary_secret.public_key(&secp()), &message)
+        .even_shared_aux(&init_aux.secondary_secret.public_key(&secp()), &message)
         ];
    
 
     println!("private keys: \n {}\n {}\n private aux: \n {} \n {}\n==================================== ", 
-        x[0].secret_bytes().to_hex(),
-        x[1].secret_bytes().to_hex(),
-        a[0].secondary_secret.secret_bytes().to_hex(), 
-        a[1].secondary_secret.secret_bytes().to_hex()
+        x[0].primary_secret.secret_bytes().to_hex(),
+        x[1].primary_secret.secret_bytes().to_hex(),
+        a[0].primary_secret.secret_bytes().to_hex(), 
+        a[1].primary_secret.secret_bytes().to_hex()
     );
 
   
