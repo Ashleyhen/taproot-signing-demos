@@ -1,10 +1,7 @@
-use std::{str::FromStr, clone};
 
 use bitcoin::{
-    psbt::serialize::Serialize,
-    schnorr::{TapTweak, TweakedKeyPair, TweakedPublicKey},
-    secp256k1::{schnorr::Signature, All, Message, Parity, Scalar, Secp256k1, SecretKey, PublicKey},
-    util::taproot::TapTweakHash,
+    schnorr::{TapTweak, TweakedKeyPair},
+    secp256k1::{schnorr::Signature,  Parity, Scalar, Secp256k1, SecretKey, PublicKey, Message},
     KeyPair, SchnorrSig, XOnlyPublicKey,
 };
 use bitcoin_hashes::{hex::ToHex, Hash, HashEngine};
@@ -28,57 +25,6 @@ fn tagged_hash(tag: &str, args: Vec<Vec<u8>>) -> [u8; 32] {
     return bitcoin::hashes::sha256::Hash::from_engine(sha_256).into_inner();
 }
 
-fn calculate_r(
-    shared_key: TweakedPublicKey,
-    auxilary: &SecretKey,
-    message: Message,
-    key_pair: &KeyPair,
-) -> XOnlyPublicKey {
-    let commitment = Scalar::random().to_be_bytes();
-    let q = tap_tweak(&key_pair, Some(commitment.to_vec()));
-
-    let t = calculate_aux_hash(&q.to_inner().secret_key(), &auxilary);
-    let secret_r = calculate_nonce_hash(t, &shared_key.to_inner(), message);
-
-    let r = SecretKey::from_slice(&secret_r)
-        .unwrap()
-        .public_key(&secp())
-        .x_only_public_key()
-        .0;
-    return r;
-}
-
-fn calculate_nonce_hash(
-    xor_auxilary: Vec<u8>,
-    x_only: &XOnlyPublicKey,
-    message: Message,
-) -> Vec<u8> {
-    return tagged_hash(
-        "BIP0340/nonce",
-        vec![
-            xor_auxilary,
-            x_only.serialize().to_vec(),
-            message[..].to_vec(),
-        ],
-    )
-    .to_vec();
-}
-
-fn calculate_aux_hash(secret: &SecretKey, auxilary: &SecretKey) -> Vec<u8> {
-    return secret
-        .secret_bytes()
-        .iter()
-        .zip(
-            tagged_hash(
-                &"BIP0340/aux".to_owned(),
-                vec![auxilary.secret_bytes().to_vec()],
-            )
-            .iter(),
-        )
-        .map(|(&x1, &x2)| x1 ^ x2)
-        .collect();
-}
-
 pub fn tap_tweak(key_pair: &KeyPair, merkle_root: Option<Vec<u8>>) -> TweakedKeyPair {
     // q=p+H(P|c)
     let x_only = key_pair.x_only_public_key().0;
@@ -91,7 +37,6 @@ pub fn tap_tweak(key_pair: &KeyPair, merkle_root: Option<Vec<u8>>) -> TweakedKey
     let tap_tweak_hash = Scalar::from_be_bytes(tagged_hash("TapTweakHash", args)).unwrap();
 
     // tap_tweak_hash
-    // let primary_secret = key_pair.secret_bytes();
     let tweak_pair = key_pair.secret_key()
         .add_tweak(&tap_tweak_hash)
         .unwrap()
@@ -130,12 +75,6 @@ pub fn Verify(pk: &XOnlyPublicKey, m: &Vec<u8>, sig: &Vec<u8>) -> bool {
         .serialize();
 
     let their_sig = s.public_key(&secp()).x_only_public_key().0.serialize();
-    println!(
-        "\n{}  \n{}",
-        our_sig.to_hex(),
-        their_sig.to_hex()
-    );
-
     return our_sig == their_sig;
 }
 
@@ -176,21 +115,18 @@ pub fn partial_sig(
 ) -> Signature {
     let aux=SecretKey::from_slice(&rand).unwrap();
 
-    dbg!(SecretKey::from_slice(&tweaked_secret.to_vec()).unwrap().public_key(&secp()).x_only_public_key());
-
      let our_sig=SecretKey::from_slice(&challenge)
         .unwrap()
         .mul_tweak(&Scalar::from_be_bytes(tweaked_secret.clone()).unwrap())
         .unwrap()
         .add_tweak(
-            &Scalar::from_be_bytes(even_secret(&aux).secret_bytes()).unwrap()
+            &Scalar::from_be_bytes(aux.secret_bytes()).unwrap()
         )
         .unwrap();
 
     let mut our_signature = aux.x_only_public_key(&secp()).0.serialize().to_vec();
 
     our_signature.extend(our_sig.secret_bytes());
-    // our_signature.push(0x81 as u8);
 
     return Signature::from_slice(&our_signature[..]).unwrap();
 }
@@ -351,7 +287,6 @@ impl Signer{
 
 #[test]
 pub fn test() {
-
     let init_scret = Signer::get_even_secret(SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
     let x = [
         init_scret,
@@ -363,24 +298,11 @@ pub fn test() {
         x[1].secondary_secret,
     ];
 
-   
-//   let d = [
-//         tap_tweak(&x[0].keypair(&secp()),None),
-//         tap_tweak(&x[1].keypair(&secp()), None),
-//     ];
-
-//     let d = vec![
-//         SecretKey::from_slice(&d[0].to_inner().secret_bytes()).unwrap(), //even_secret was here before
-//         SecretKey::from_slice(&d[1].to_inner().secret_bytes()).unwrap(),
-//     ];
-
     let shared_p = d[0]
         .public_key(&secp())
         .combine(&d[1].public_key(&secp()))
         .unwrap();
 
-
-    dbg!(shared_p.x_only_public_key());
     let message = Scalar::ONE.to_be_bytes().to_vec();
     let init_aux=Signer::get_even_aux(d[0], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap());
 
@@ -389,16 +311,6 @@ pub fn test() {
         Signer::get_even_aux(d[1], &message, SecretKey::from_slice(&Scalar::random().to_be_bytes()).unwrap())
         .even_shared_aux(&init_aux.secondary_secret.public_key(&secp()), &message)
         ];
-   
-
-    println!("private keys: \n {}\n {}\n private aux: \n {} \n {}\n==================================== ", 
-        x[0].primary_secret.secret_bytes().to_hex(),
-        x[1].primary_secret.secret_bytes().to_hex(),
-        a[0].primary_secret.secret_bytes().to_hex(), 
-        a[1].primary_secret.secret_bytes().to_hex()
-    );
-
-  
 
     let r = [
         a[0].secondary_secret.secret_bytes(),
@@ -411,8 +323,6 @@ pub fn test() {
     ];
 
     let shared_aux = aux[0].combine(&aux[1]).unwrap();
-
-
     
     let e =calculate_challenge(&shared_aux.x_only_public_key().0, &shared_p.x_only_public_key().0, &message);
 
@@ -436,11 +346,10 @@ pub fn test() {
     Checks::verify_with_challenge(&d[1].public_key(&secp()).x_only_public_key().0, &Scalar::from_be_bytes(e).unwrap(), &sig[1][..].to_vec());
 
 
-let final_sig=Signature::from_slice(&aggregate_sign(&sig)).unwrap();
+    let final_sig=Signature::from_slice(&aggregate_sign(&sig)).unwrap();
 
-secp().verify_schnorr(&final_sig, &Message::from_slice(&message).unwrap(), &shared_p.x_only_public_key().0).unwrap();
-Verify(&shared_p.x_only_public_key().0, &message, &final_sig[..].to_vec());
-
+    secp().verify_schnorr(&final_sig, &Message::from_slice(&message).unwrap(), &shared_p.x_only_public_key().0).unwrap();
+    Verify(&shared_p.x_only_public_key().0, &message, &final_sig[..].to_vec());
 }
 
 
@@ -456,7 +365,6 @@ impl Checks{
         let sig=sign(message, &key_pair,rand);
         return Verify(&key_pair.public_key().x_only_public_key().0, message, &sig.sig[..].to_vec());
     }
-
 
     pub fn verify_with_challenge(pk: &XOnlyPublicKey,e:&Scalar,  sig: &Vec<u8>,) -> bool {
         let r = XOnlyPublicKey::from_slice(&sig[..32]).unwrap();
