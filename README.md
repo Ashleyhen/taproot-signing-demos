@@ -29,22 +29,58 @@ r=H(t|P|m) \\
 
 R=rG \\
 
-s=H(R|P|m)q+even(r) \\
+s=H(R|P|m)d+even(r) \\
 
-signature = (s|R|b)$$
+signature = (s|R|b)
+$$
 
 The total bytes is 65 bytes
 
 
 ---
 
-# verification
+# Verification
 
 $$
     P=even(pk) \\
     R=sig[0:32] \\
     s=sig[32:64] \\
     R+H(R|P|m)P == sG
+
+$$
+
+---
+
+# Musig
+
+$$
+even(x)= mod(xG,2) ==0? x : n-x \\
+
+X_1=s_1G, \ X_2=s_2G\\
+
+d'_1=s_1+H(X_1|c_1),  \ d'_2=s_2+H(X_2|c_2) \\
+
+P_1=d'_1G, \ P_2=d'_2G \\
+
+P_1+ P_2=P_{1+2} \\
+
+d_1=even(d'_1) \ d_2=even(d'_2) \\ 
+
+t_1=XOR(d_1,H(a_1)) \ t_2=XOR(d_2,H(a_2)) \\
+
+r_1=H(t_1|P_{1+2}|m), \ r_2=H(t_2|P_{1+2}|m) \\
+
+R_1=r_1G \ R_2=r_2G \\
+
+s_1+s_2=H(R_{1+2}|P_{1+2}|m)d_1+even(r_1) + H(R_{1+2}|P_{1+2}|m)d_2+even(r_2) \\
+
+\rightarrow s_1+s_2=H(R_{1+2}|P_{1+2}|m)(d_1 + d_2)+even(r_1)+even(r_2) \\
+G(s_1+s_2)=G(H(R_{1+2}|P_{1+2}|m)(d_1 + d_2)+even(r_1)+even(r_2)) \\
+
+S_1+S_2= H(R_{1+2}|P_{1+2}|m) P_{1+2} +even(R_{1+2}) \\
+
+
+signature = (s|R|b)
 
 $$
 

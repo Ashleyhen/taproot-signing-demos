@@ -3,6 +3,7 @@ use bitcoin::secp256k1::{All, Scalar, Secp256k1};
 use crate::schnorr_signing::schnorr_sig::KeySet;
 
 pub mod strawman_musig;
+pub mod tr_musig;
 
 #[test]
 pub fn musig() {
