@@ -194,5 +194,11 @@ pub fn test() {
         &schnorr_sig.sig[..].to_vec()
     ));
 
-    secp().verify_schnorr(&schnorr_sig.sig, &Message::from_slice(&message).unwrap(), &d.to_inner().x_only_public_key().0).unwrap();
+    secp()
+        .verify_schnorr(
+            &schnorr_sig.sig,
+            &Message::from_slice(&message).unwrap(),
+            &d.to_inner().x_only_public_key().0,
+        )
+        .unwrap();
 }
